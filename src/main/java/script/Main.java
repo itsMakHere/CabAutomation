@@ -40,7 +40,7 @@ public class Main {
 				|| isSuccessful.contains("Successfully cancelled booking")
 				|| isSuccessful.contains("Sorry! it seems that you have not yet booked your cab.")) {
 			return false;
-		} else if (count == 3) {
+		} else if (count == 2) {
 			return false;
 		}
 		return true;
@@ -52,7 +52,6 @@ public class Main {
 		 *provide username and password either by command line argumment 
 		 *or hardcode it into programe
 		 */
-		String destination = "";
 		String username = "";
 		String password = "\"\"";
 		if (args.length == 0) {
@@ -67,17 +66,11 @@ public class Main {
 		System.out.println("===================================================\n" + "VIKHROLI CAB BOOKING SERVICE\n"
 				+ "===================================================\n\n");
 
-		String userSelectedTime = "";
 		Map<String, String> userResponse = new HashMap<>();
 		ExecutorService es = Executors.newFixedThreadPool(1);
 		Future<Map<String, String>> future1 = es.submit(() -> {
 			Map<String, String> userInput = new HashMap<String, String>();
 			Scanner sc = new Scanner(System.in);
-			System.out.println("Where you wanna go?");
-			System.out.println("1:Vikhroli \n2:Kanjumarg");
-			int destinationChoice = sc.nextInt();
-			String localDestination = getDestination(destinationChoice);
-			userInput.put("destination", localDestination);
 			System.out.println("What you wanna do ?\n");
 			System.out.println("1: Book Cab\n" + "2: Cancel Cab");
 			int userChoice = sc.nextInt();
@@ -94,6 +87,15 @@ public class Main {
 				System.exit(0);
 			}
 			userInput.put("operation", operation);
+			if(userChoice == 2){
+				sc.close();
+				return userInput;
+			}
+			System.out.println("Where you wanna go?");
+			System.out.println("1:Vikhroli \n2:Kanjumarg");
+			int destinationChoice = sc.nextInt();
+			String localDestination = getDestination(destinationChoice);
+			userInput.put("destination", localDestination);
 			String time = "";
 			if ("Book Cab".equalsIgnoreCase(operation)) {
 				System.out.println("Please select time? ");
@@ -113,56 +115,46 @@ public class Main {
 		});
 		try {
 			try {
-				userResponse = future1.get(25, TimeUnit.SECONDS);
+				userResponse = future1.get(10, TimeUnit.SECONDS);
 			} catch (ExecutionException e) {
 				e.printStackTrace();
 			} catch (TimeoutException e) {
 				System.out.println("Timeout has occured!");
 			}
 		} finally {
-			if (userResponse.size() != 0) {
-				if("".equalsIgnoreCase(userResponse.get("operation"))){
-					userResponse.put("operation", "Book Cab");
-				}
-				if ("Book Cab".equalsIgnoreCase(userResponse.get("operation"))) {
-					if ("".equalsIgnoreCase(userResponse.get("time")) || userResponse.get("time") == null) {
-						if ("Vikhroli".equalsIgnoreCase(userResponse.get("destination"))) {
-							System.out.println("Using system default time : 7:15 PM");
-							userSelectedTime = "07:15 PM";
-						} else {
-							System.out.println("Using system default time : 7:30 PM");
-							userSelectedTime = "07:30 PM";
-						}
-						userResponse.put("time", userSelectedTime);
-					}
-				}
-			} else {
-				System.out.println("Going to book a cab using system default time : 7:15 PM");
+			if (userResponse.size() == 0) {
+				System.out.println("Going to book a cab for vikhroli using system default time : 7:15 PM");
 				userResponse.put("destination", "Vikhroli");
 				userResponse.put("operation", "Book Cab");
-				userResponse.put("time", "08:00 PM");
+				userResponse.put("time", "07:15 PM");
 			}
-
 		}
-		System.out.println(userResponse.get("destination"));
-		System.out.println(userResponse.get("operation"));
-		System.out.println(userResponse.get("time"));
-		int count = 0;
-		String isSuccessful = "";
-		//System.out.println("Username is " + username);
-		//System.out.println("Password is " + password);
-		do {
+		if (!("".equalsIgnoreCase(username)) && username != null && !("".equalsIgnoreCase(password))
+				&& password != null) {
+			System.out.println("Username is " + username);
+			System.out.println("Password is " + password);
+			System.out.println("-----------You have selected the following options!-----------");
+			System.out.println(userResponse.get("destination"));
+			System.out.println(userResponse.get("operation"));
+			System.out.println(userResponse.get("time"));
+			int count = 0;
+			String isSuccessful = "";
+			do {
+				System.out.println(isSuccessful);
+				isSuccessful = Main.bookCab(username, password, userResponse.get("destination"), userResponse);
+				if (isSuccessful.contains("Can not capture screenshot!")) {
+					System.out.println("Failed to capture screenshot!");
+					break;
+				} else if (isSuccessful.contains("Login Failed")) {
+					count++;
+				}
+			} while (toContinue(isSuccessful, count));
 			System.out.println(isSuccessful);
-			isSuccessful = Main.bookCab(username, password, userResponse.get("destination"), userResponse);
-			if (isSuccessful.contains("Can not capture screenshot!")) {
-				System.out.println("Failed to capture screenshot!");
-				break;
-			} else if (isSuccessful.contains("Login Failed")) {
-				count++;
-			}
-		} while (toContinue(isSuccessful, count));
-		System.out.println(isSuccessful);
-		System.exit(0);
+			System.exit(0);
+		} else {
+			System.out.println("Please provide username and password from command line");
+			System.exit(0);
+		}
 	}
 
 	private static String getDestination(int destinationChoice) {

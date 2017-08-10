@@ -33,8 +33,8 @@ public class CabBooking implements Callable<String> {
 		this.destination = destination;
 		this.userResponse = userResponse;
 	}
-	
-	private boolean isLoginSuccessful(WebDriver driver){
+
+	private boolean isLoginSuccessful(WebDriver driver) {
 		try {
 			Thread.sleep(1500);
 			driver.findElement(By.cssSelector("input[ng-click='destSelected()']")).click();
@@ -50,16 +50,61 @@ public class CabBooking implements Callable<String> {
 		driver.findElement(By.cssSelector("input[ng-model='pass']")).sendKeys(password);
 		driver.findElement(By.cssSelector("input[value='Login']")).click();
 		System.out.println("Submitted the login form. Waiting for response...");
-		if(isLoginSuccessful(driver)){
+		if (isLoginSuccessful(driver)) {
 			return "success";
-		}else{
-			if(isLoginSuccessful(driver)){
+		} else {
+			if (isLoginSuccessful(driver)) {
 				return "success";
 			}
 			return "failure";
 		}
 	}
 
+	private String bookCab(WebDriver driver) {
+		String message = "error occured";
+		System.out.println("Selecting the destination and time...");
+		new Select(driver.findElement(By.cssSelector("[ng-model='routeSelected']"))).selectByValue(destination);
+		new Select(driver.findElement(By.cssSelector("[ng-model='timeSelected']")))
+				.selectByVisibleText(userResponse.get("time"));
+		driver.findElement(By.cssSelector("input[value='Kensington']")).click();
+		int count = 0;
+		try {
+			do {
+				driver.findElement(By.cssSelector("[ng-click='clickBook(timeSelected)'][ng-disabled='isBookDisabled']"))
+						.click();
+				try {
+					driver.findElement(By.cssSelector("[ng-click='yes()']")).click();
+					Thread.sleep(1000);
+					driver.findElement(By.cssSelector(".modal-footer [ng-click='close()']")).click();
+				} catch (NoSuchElementException e) {
+					driver.findElement(By.cssSelector(".modal-footer [ng-click='close()']")).click();
+				}
+				if (driver.findElement(By.cssSelector("[ng-click='bookingCancel()']")).isDisplayed()) {
+					System.out.println("Taking a screenshot...");
+					File srcFile = ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);
+					FileUtils.copyFile(srcFile, new File("c:\\tmp\\screenshot.png"));
+					message = "Booked Succesfully! Please see the screenshot in C->temp folder";
+				} else {
+					System.out.println("Try booking prior to one hour. but we are trying..."+ (++count));
+				}
+			} while (!driver.findElement(By.cssSelector("[ng-click='bookingCancel()']")).isDisplayed());
+			return message;
+		} catch (IOException e) {
+			return "Can not capture screenshot!";
+		} catch (Exception e) {
+			File srcFile = ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);
+			message = "Your seat is already booked! \nPlease see the screenshot in C->temp folder for detailed information ";
+			try {
+				FileUtils.copyFile(srcFile, new File("c:\\tmp\\screenshot.png"));
+			} catch (IOException e1) {
+				return "Can not capture screenshot!";
+			}
+		} finally {
+			driver.quit();
+		}
+		return message;
+
+	}
 
 	private String cancelCab(WebDriver driver) {
 		try {
@@ -93,61 +138,18 @@ public class CabBooking implements Callable<String> {
 
 	}
 
-	private String bookCab(WebDriver driver) {
-		String message = "error occured";
-		System.out.println("Selecting the destination and time...");
-		new Select(driver.findElement(By.cssSelector("[ng-model='routeSelected']"))).selectByValue(destination);
-		new Select(driver.findElement(By.cssSelector("[ng-model='timeSelected']"))).selectByVisibleText(userResponse.get("time"));
-		driver.findElement(By.cssSelector("input[value='Kensington']")).click();
-		try {
-			do {
-				driver.findElement(By.cssSelector("[ng-click='clickBook(timeSelected)'][ng-disabled='isBookDisabled']")).click();
-				try{
-					driver.findElement(By.cssSelector("[ng-click='yes()']")).click();
-					Thread.sleep(1000);
-					driver.findElement(By.cssSelector(".modal-footer [ng-click='close()']")).click();
-				}catch(NoSuchElementException e){
-					driver.findElement(By.cssSelector(".modal-footer [ng-click='close()']")).click();
-				}
-				if (driver.findElement(By.cssSelector("[ng-click='bookingCancel()']")).isDisplayed()) {
-					System.out.println("Taking a screenshot...");
-					File srcFile = ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);
-					FileUtils.copyFile(srcFile, new File("c:\\tmp\\screenshot.png"));
-					message = "Booked Succesfully! Please see the screenshot in C->temp folder";
-				} else {
-					System.out.println("Try booking prior to one hour. but we are trying...");
-				}
-			} while (!driver.findElement(By.cssSelector("[ng-click='bookingCancel()']")).isDisplayed());
-			return message;
-		} catch (IOException e) {
-			return "Can not capture screenshot!";
-		} catch (Exception e) {
-			File srcFile = ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);
-			message = "Your seat is already booked! \nPlease see the screenshot in C->temp folder for detailed information ";
-			try {
-				FileUtils.copyFile(srcFile, new File("c:\\tmp\\screenshot.png"));
-			} catch (IOException e1) {
-				return "Can not capture screenshot!";
-			}
-		} finally {
-			driver.quit();
-		}
-		return message;
-
-	}
-
 	public String call() throws Exception {
 		WebDriver driver;
 		if (GUI_MODE) {
 			System.setProperty("webdriver.gecko.driver",
-					"<path_to_geckodriver.exe>");
+					"C:\\Users\\\\Downloads\\geckodriver-v0.15.0-win64\\geckodriver.exe");
 			driver = new FirefoxDriver();
 		} else {
 			System.setProperty("phantomjs.binary.path",
-					"<path_to_phantomjs.exe>");
+					"C:\\Users\\\\Downloads\\phantomjs-2.1.1-windows\\bin\\phantomjs.exe");
 			driver = new PhantomJSDriver();
 		}
-		 
+
 		if ("Book Cab".equalsIgnoreCase(userResponse.get("operation"))) {
 			System.out.println("We are booking a cab for you. Just relax! We will notify you soon........");
 			System.out.println("------------ CAB INFORMATION ------------\n" + "DESTINATION: "
@@ -158,7 +160,7 @@ public class CabBooking implements Callable<String> {
 		driver.get(URL);
 		driver.manage().timeouts().implicitlyWait(10, TimeUnit.SECONDS);
 		if ("success".equalsIgnoreCase(login(driver))) {
-			driver.manage().timeouts().implicitlyWait(500, TimeUnit.MILLISECONDS);
+			driver.manage().timeouts().implicitlyWait(20, TimeUnit.MILLISECONDS);
 			System.out.println("Login successfull");
 			if ("Book Cab".equalsIgnoreCase(userResponse.get("operation"))) {
 				return bookCab(driver);
